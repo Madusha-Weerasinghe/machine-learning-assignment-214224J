@@ -23,7 +23,7 @@ def train():
     X = df.drop(columns=['Price_F'])
     y = df['Price_F']
 
-    # 🔥 SAVE FEATURE ORDER (IMPORTANT FIX)
+    # Save feature order
     joblib.dump(X.columns.tolist(), FEATURE_PATH)
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -43,18 +43,22 @@ def train():
     print("🚀 Training model...")
     model.fit(X_train, y_train)
 
-    # Evaluation
+    # Predictions
     train_preds = model.predict(X_train)
     test_preds = model.predict(X_test)
 
+    # Metrics
     print("\nTRAIN METRICS")
     print("R2:", r2_score(y_train, train_preds))
+    print("Correlation:", np.corrcoef(y_train, train_preds)[0, 1])
 
     print("\nTEST METRICS")
     print("R2:", r2_score(y_test, test_preds))
     print("MAE:", mean_absolute_error(y_test, test_preds))
     print("MSE:", mean_squared_error(y_test, test_preds))
+    print("Correlation:", np.corrcoef(y_test, test_preds)[0, 1])
 
+    # Save model
     joblib.dump(model, MODEL_PATH)
 
     print("✅ Model and feature order saved successfully")
