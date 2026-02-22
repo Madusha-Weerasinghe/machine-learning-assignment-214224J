@@ -57,15 +57,15 @@ def preprocess():
     df = df[(df['Price_F'] >= low) & (df['Price_F'] <= high)].copy()
 
     # =========================================================
-    # 6️⃣ STANDARDIZE REGION NAMES (🔥 IMPORTANT FIX)
+    # 6️⃣ STANDARDIZE REGION NAMES 
     # =========================================================
     df['region'] = (
         df['region']
         .astype(str)
-        .str.strip()          # remove leading/trailing spaces
-        .str.lower()          # convert to lowercase
-        .str.replace(r"\s+", " ", regex=True)  # remove double spaces
-        .str.title()          # convert to clean Title Case
+        .str.strip()          
+        .str.lower()          
+        .str.replace(r"\s+", " ", regex=True)  
+        .str.title()          
     )
 
     print("Unique Regions After Cleaning:")

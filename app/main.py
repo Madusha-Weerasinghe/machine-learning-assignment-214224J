@@ -163,7 +163,7 @@ def main():
         st.markdown("""
         * **Model:** A sophisticated **Stacking Regressor** that combines the strengths of *HistGradientBoosting* and *Random Forest* models.
         * **Explainability:** Utilizing **Local Baseline Analysis** to show individual parameter impacts compared to average Sri Lankan environmental conditions.
-        * **Tech Stack:** Built with Python, Streamlit, Scikit-Learn, and XGBoost.
+        * **Tech Stack:** Built with Python, Streamlit, and Scikit-Learn (using Stacking Ensembles).
         """)
 if __name__ == "__main__":
     main()
