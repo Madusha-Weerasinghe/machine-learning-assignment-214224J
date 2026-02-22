@@ -3,13 +3,20 @@ import pandas as pd
 import joblib
 import os
 import numpy as np
+import shap
+import matplotlib.pyplot as plt
 
 # Paths for assets
 MODEL_PATH = "models/wood_apple_model.pkl"
 ENCODER_PATH = "data/processed/region_encoder.pkl"
 FEATURE_PATH = "models/wood_apple_features.pkl"
-ACCURACY_CHART = "output/wood_apple_accuracy_importance.png"
-SENSITIVITY_CHART = "output/wood_apple_sensitivity_dynamics.png"
+DATA_PATH = "data/processed/processed_wood_apple.csv"
+
+# Evaluation Chart Paths
+CHART_ACTUAL_VS_PRED = "output/actual_vs_predict_50.png"
+CHART_ACCURACY_SCATTER = "output/prediction_accuracy_scatter.png"
+CHART_IMPORTANCE = "output/feature_importance.png"
+CHART_SHAP_SUMMARY = "output/wood_apple_accuracy_importance.png"
 
 st.set_page_config(
     page_title="Wood Apple AI Dashboard",
@@ -35,7 +42,7 @@ st.markdown("""
         border-left: 5px solid #2E7D32;
         border-radius: 4px;
         margin: 10px 0;
-        color: #000000 !important; /* Forces text color to black */
+        color: #000000 !important;
         font-size: 18px;
         font-weight: 500;
         line-height: 1.6;
@@ -50,14 +57,18 @@ def main():
 
     tab1, tab2, tab3 = st.tabs(["🚀 Price Prediction", "📊 XAI Analytics", "ℹ️ About Project"])
 
-    # ---------- TAB 1: PREDICTION ----------
+    # ---------- TAB 1: PREDICTION & INDIVIDUAL IMPACT ----------
     with tab1:
-        if not os.path.exists(MODEL_PATH):
-            st.error("Model not found. Run training first.")
+        if not os.path.exists(MODEL_PATH) or not os.path.exists(DATA_PATH):
+            st.error("Required files (model or data) not found. Run training first.")
         else:
             model = joblib.load(MODEL_PATH)
             encoder = joblib.load(ENCODER_PATH)
             feature_order = joblib.load(FEATURE_PATH)
+            
+            # Load a small fixed reference for consistent SHAP base values
+            df_ref = pd.read_csv(DATA_PATH).drop(columns=['Price_F'])
+            background_sample = shap.sample(df_ref[feature_order], 100)
 
             st.sidebar.header("📊 Input Parameters")
             temp = st.sidebar.number_input("Temperature (°C)", value=30.0)
@@ -83,87 +94,98 @@ def main():
                 st.markdown(f"""
                     <div class="metric-card">
                         <h1 style="color:#1B5E20;">Rs. {prediction:.2f}</h1>
-                        <p>Current Predicted Market Price</p>
+                        <p>Predicted Market Price</p>
                     </div>
                 """, unsafe_allow_html=True)
 
                 st.divider()
 
-                # --- LOCAL EXPLANATION LOGIC ---
-                st.subheader("🕵️ Why is the price Rs. {:.2f}?".format(prediction))
+                # --- CONSISTENT INDIVIDUAL IMPACT ANALYSIS ---
+                st.subheader(f"🕵️ Why is the price Rs. {prediction:.2f}?")
                 
-                baseline_data = input_data.copy()
-                baseline_data['Temp_C'] = 28.0
-                baseline_data['Humid'] = 70.0
-                baseline_data['Rain (mm)'] = 10.0
-                baseline_data['heat_index'] = 28.0 * 70.0
-                base_p = model.predict(baseline_data)[0]
+                # Use the fixed background sample so the "starting bar" (E[f(x)]) never changes
+                explainer = shap.Explainer(model.predict, background_sample)
+                shap_values = explainer(input_data)
 
-                exp_cols = st.columns(3)
-                
-                h_data = baseline_data.copy()
-                h_data['Humid'] = humid
-                h_data['heat_index'] = h_data['Temp_C'] * humid
-                h_impact = model.predict(h_data)[0] - base_p
-                exp_cols[0].metric("Humidity Impact", f"Rs. {h_impact:+.2f}", f"{humid}% vs 70% avg")
+                fig, ax = plt.subplots(figsize=(10, 4))
+                shap.plots.waterfall(shap_values[0], show=False)
+                st.pyplot(fig)
 
-                t_data = baseline_data.copy()
-                t_data['Temp_C'] = temp
-                t_data['heat_index'] = temp * t_data['Humid']
-                t_impact = model.predict(t_data)[0] - base_p
-                exp_cols[1].metric("Temperature Impact", f"Rs. {t_impact:+.2f}", f"{temp}°C vs 28°C avg")
-
-                r_data = baseline_data.copy()
-                r_data['Rain (mm)'] = rain
-                r_impact = model.predict(r_data)[0] - base_p
-                exp_cols[2].metric("Rainfall Impact", f"Rs. {r_impact:+.2f}", f"{rain}mm vs 10mm avg")
-
-                # The reasoning box with black text color applied via CSS
                 st.markdown(f"""
                 <div class="reasoning-box">
-                <strong>Model Logic:</strong> The price is primarily driven by 
-                {'higher than average' if h_impact > 0 else 'lower than average'} humidity and 
-                {'warmer' if t_impact > 0 else 'cooler'} temperatures in <strong>{region}</strong>.
-                Combined, these factors created a net adjustment of <strong>Rs. {h_impact + t_impact + r_impact:+.2f}</strong> relative to standard baseline conditions.
+                <strong>How to interpret this:</strong> This chart starts from the global average price (bottom). 
+                <span style="color:red;">Red bars</span> show your specific inputs that increased the price, 
+                while <span style="color:blue;">blue bars</span> show inputs that decreased it.
                 </div>
                 """, unsafe_allow_html=True)
 
     # ---------- TAB 2: XAI ANALYTICS ----------
     with tab2:
-        st.header("Global Model Intelligence")
-        c1, c2 = st.columns(2)
-        with c1:
-            if os.path.exists(ACCURACY_CHART):
-                st.image(ACCURACY_CHART, caption="Feature Importance Breakdown")
-        with c2:
-            if os.path.exists(SENSITIVITY_CHART):
-                st.image(SENSITIVITY_CHART, caption="Global Trend Analysis")
+        st.header("Global Model Performance & Intelligence")
+        
+        row1_col1, row1_col2 = st.columns(2)
+        with row1_col1:
+            if os.path.exists(CHART_ACTUAL_VS_PRED):
+                st.image(CHART_ACTUAL_VS_PRED, caption="Actual vs. Predicted (First 50 Samples)")
+        with row1_col2:
+            if os.path.exists(CHART_ACCURACY_SCATTER):
+                st.image(CHART_ACCURACY_SCATTER, caption="Overall Prediction Accuracy")
 
-   # ---------- TAB 3: ABOUT PROJECT ----------
+        st.divider()
+
+        row2_col1, row2_col2 = st.columns(2)
+        with row2_col1:
+            if os.path.exists(CHART_IMPORTANCE):
+                st.image(CHART_IMPORTANCE, caption="XGBoost Feature Importance")
+        with row2_col2:
+            if os.path.exists(CHART_SHAP_SUMMARY):
+                st.image(CHART_SHAP_SUMMARY, caption="SHAP Global Summary")
+
+    # ---------- TAB 3: ABOUT PROJECT ----------
     with tab3:
         st.header("📖 Project Documentation & Market Context")
         
-        st.subheader("⚠️ The Problem")
+        # Section 1: The Problem
+        st.subheader("⚠️ The Problem: Investment Risk & Information Gaps")
         st.markdown("""
-        Investing in Wood Apple products or raw fruit procurement in Sri Lanka often faces several challenges:
-        * **Price Volatility:** Market prices fluctuate unpredictably due to seasonal changes and monsoon patterns.
-        * **Information Asymmetry:** Small-scale investors and manufacturers often lack access to real-time data on how environmental factors impact costs.
-        * **Investment Risk:** Without data-driven insights, businesses may overpay for stock or fail to anticipate supply shortages during extreme weather.
+        Investing in Wood Apple products or raw fruit procurement in Sri Lanka faces significant hurdles:
+        * **Price Volatility:** Agricultural commodities like Wood Apple experience high price instability due to seasonal changes and monsoon patterns.
+        * **Information Asymmetry:** Small-scale producers and investors often lack access to real-time data, leading to financial risk during procurement.
+        * **Perishability:** High post-harvest losses in Sri Lanka impact market value; understanding environmental drivers is crucial for minimizing waste.
         """)
 
-        st.subheader("💡 The Solution")
+        # Section 2: The Solution
+        st.subheader("💡 The Solution: Data-Driven Price Intelligence")
         st.markdown("""
-        This **Wood Apple Price Intelligence** system provides a data-driven solution to these challenges:
-        * **Informed Investment:** Investors can use the prediction tool to estimate future costs and decide the best time to purchase or process products.
-        * **Risk Mitigation:** By analyzing the **Local Baseline**, users can understand exactly why a price is high or low (e.g., due to high humidity or regional scarcity).
-        * **Transparent Logic:** Unlike "black-box" models, this system uses **XAI (Explainable AI)** to show how parameters like Rainfall and Temperature drive the final market price.
+        This system provides a technical framework to mitigate these risks:
+        * **Risk Mitigation:** By analyzing individual feature impacts, users can understand if a price is driven by temporary stressors (like high humidity) or regional scarcity.
+        * **Transparent Logic:** This system uses **XAI (Explainable AI)** to show how parameters like Rainfall and Temperature drive the final market price.
+        * **Investment Optimization:** Investors can estimate costs based on current conditions to decide the optimal time for fruit processing or procurement.
         """)
 
-        st.subheader("🛠 Technical Methodology")
-        st.markdown("""
-        * **Model:** A sophisticated **Stacking Regressor** that combines the strengths of *HistGradientBoosting* and *Random Forest* models.
-        * **Explainability:** Utilizing **Local Baseline Analysis** to show individual parameter impacts compared to average Sri Lankan environmental conditions.
-        * **Tech Stack:** Built with Python, Streamlit, and Scikit-Learn (using Stacking Ensembles).
-        """)
+        # Section 3: Technical Methodology
+        st.subheader("🛠 Technical Methodology & Data Processing")
+        
+        col_tech1, col_tech2 = st.columns(2)
+        with col_tech1:
+            st.markdown("""
+            **Data Pipeline:**
+            * **Feature Engineering:** Raw market data is integrated with environmental metrics, including a custom **Heat Index** (Temp × Humid) to capture combined stress factors.
+            * **Model Selection:** We utilize a high-performance **XGBoost Regressor** (500 estimators, max depth 6) optimized for tabular agricultural data.
+            """)
+        
+        with col_tech2:
+            st.markdown("""
+            **Explainability & Validation:**
+            * **SHAP Integration:** The system uses **SHAP (SHapley Additive Explanations)** to mathematically attribute price changes to specific features.
+            * **Rigorous Evaluation:** The model is validated using R2 Score, Correlation, MAE, and MSE to ensure reliability.
+            """)
+
+            # Display the evaluation metrics from the generated file
+        if os.path.exists("output/model_evaluation.txt"):
+            with st.expander("📊 View Latest Model Evaluation Report"):
+                with open("output/model_evaluation.txt", "r") as f:
+                    st.text(f.read())
+
 if __name__ == "__main__":
     main()

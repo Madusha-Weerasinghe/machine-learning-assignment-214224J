@@ -1,13 +1,13 @@
 
-    WOOD APPLE MODEL EVALUATION REPORT
+    WOOD APPLE MODEL EVALUATION REPORT (XGBOOST)
     =================================
     TRAINING SET METRICS
-    - R2 Score: 0.9678
-    - Correlation: 0.9838
+    - R2 Score: 0.9638
+    - Correlation: 0.9846
 
     TEST SET METRICS
-    - R2 Score: 0.9250
-    - Correlation: 0.9618
-    - Mean Absolute Error (MAE): 17.29
-    - Mean Squared Error (MSE): 1035.81
+    - R2 Score: 0.9188
+    - Correlation: 0.9623
+    - Mean Absolute Error (MAE): 18.41
+    - Mean Squared Error (MSE): 1120.92
     
