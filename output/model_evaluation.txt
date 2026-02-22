@@ -1,0 +1,13 @@
+
+    WOOD APPLE MODEL EVALUATION REPORT
+    =================================
+    TRAINING SET METRICS
+    - R2 Score: 0.9678
+    - Correlation: 0.9838
+
+    TEST SET METRICS
+    - R2 Score: 0.9250
+    - Correlation: 0.9618
+    - Mean Absolute Error (MAE): 17.29
+    - Mean Squared Error (MSE): 1035.81
+    
