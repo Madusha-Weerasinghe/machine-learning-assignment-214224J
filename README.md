@@ -32,12 +32,6 @@ py src/train.py
 
 This trains the machine learning model.
 
-### 3️⃣ Generate Explainability & XAI Outputs
-
-```powershell
-py src/explainability.py
-```
-
 This generates:
 
 - Sensitivity analysis PNG
